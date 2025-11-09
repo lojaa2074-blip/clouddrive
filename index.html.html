@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudDrive - Armazenamento Gratuito</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-firestore-compat.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .config-warning {
+            background: #fff3cd;
+            border: 3px solid #ffc107;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            display: none;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { border-color: #ffc107; }
+            50% { border-color: #ff9800; }
+        }
+        
+        .config-warning.show {
+            display: block;
+        }
+        
+        .config-warning h2 {
+            color: #856404;
+            margin-bottom: 15px;
+            font-size: 22px;
+        }
+        
+        .config-warning ol {
+            color: #856404;
+            line-height: 2;
+            margin-left: 20px;
+        }
+        
+        .config-warning code {
+            background: #fff;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #d63384;
+        }
+        
+        .config-warning .btn-help {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        h1 {
+            font-size: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .badge {
+            background: #4caf50;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .stats {
+            text-align: right;
+        }
+        
+        .stats-label {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+        
+        .stats-value {
+            font-size: 36px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .upload-area {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .upload-zone {
+            border: 3px dashed #667eea;
+            border-radius: 16px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+        }
+        
+        .upload-zone:hover {
+            border-color: #764ba2;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            transform: scale(1.02);
+        }
+        
+        .upload-zone.uploading {
+            cursor: not-allowed;
+            opacity: 0.6;
+            animation: uploading 1.5s infinite;
+        }
+        
+        @keyframes uploading {
+            0%, 100% { border-color: #667eea; }
+            50% { border-color: #764ba2; }
+        }
+        
+        .upload-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .upload-text {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .upload-subtext {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .warning-text {
+            margin-top: 15px;
+            font-size: 13px;
+            color: #666;
+            padding: 12px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+        
+        .limit-info {
+            color: #ff5722;
+            font-weight: bold;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .files-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .section-icon {
+            font-size: 28px;
+        }
+        
+        .section-title {
+            font-size: 26px;
+            color: #333;
+            font-weight: 700;
+        }
+        
+        .files-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 16px;
+            transition: all 0.3s;
+            background: white;
+        }
+        
+        .file-item:hover {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .file-icon {
+            font-size: 40px;
+            flex-shrink: 0;
+        }
+        
+        .file-details {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .file-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 6px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 16px;
+        }
+        
+        .file-meta {
+            font-size: 13px;
+            color: #999;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .file-actions {
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 22px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-download {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+        }
+        
+        .btn-download:hover {
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        .btn-delete {
+            background: linear-gradient(135deg, #f44336 0%, #e53935 100%);
+            color: white;
+        }
+        
+        .btn-delete:hover {
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+        }
+        
+        .empty-icon {
+            font-size: 100px;
+            opacity: 0.3;
+            margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .empty-text {
+            font-size: 24px;
+            color: #666;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .empty-subtext {
+            font-size: 16px;
+            color: #999;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .progress-container {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .progress-container.show {
+            display: block;
+        }
+        
+        .progress-text {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+        
+        .error-message {
+            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+            border: 2px solid #ef5350;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            display: none;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(239, 83, 80, 0.3);
+        }
+        
+        .error-message.show {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .success-message {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border: 2px solid #4caf50;
+            color: #2e7d32;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            display: none;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+        
+        .success-message.show {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .stats {
+                text-align: center;
+            }
+            
+            .file-item {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .file-info {
+                width: 100%;
+            }
+            
+            .file-actions {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .upload-icon {
+                font-size: 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Aviso de Configuração -->
+        <div class="config-warning" id="configWarning">
+            <h2>🔧 CONFIGURE SEU FIREBASE (2 MINUTOS!)</h2>
+            <ol>
+                <li>Você já criou o projeto <code>Upload-doc</code> ✅</li>
+                <li>Agora ative o <strong>Firestore</strong>:
+                    <ul>
+                        <li>No menu lateral, clique em <strong>Criação</strong></li>
+                        <li>Clique em <strong>Firestore Database</strong></li>
+                        <li>Clique em <strong>Criar banco de dados</strong></li>
+                        <li>Escolha <strong>"Modo de teste"</strong> (permite por 30 dias)</li>
+                        <li>Localização: <strong>southamerica-east1</strong></li>
+                    </ul>
+                </li>
+                <li>Pegue suas credenciais:
+                    <ul>
+                        <li>Clique na <strong>engrenagem ⚙️</strong> ao lado de "Visão geral"</li>
+                        <li>Clique em <strong>Configurações do projeto</strong></li>
+                        <li>Role até <strong>"Seus aplicativos"</strong></li>
+                        <li>Clique em <strong>&lt; / &gt;</strong> (Web)</li>
+                        <li>Copie o código <code>firebaseConfig</code></li>
+                        <li>Cole no código deste site (linha 30)</li>
+                    </ul>
+                </li>
+            </ol>
+            <button class="btn-help" onclick="alert('📍 Passo a passo:\n\n1. Menu lateral → Criação → Firestore Database\n2. Criar banco de dados → Modo de teste → southamerica-east1\n3. Engrenagem ⚙️ → Configurações → Seus aplicativos → Web\n4. Copie firebaseConfig e cole no código!')">❓ Ver resumo rápido</button>
+        </div>
+        
+        <!-- Mensagem de Erro -->
+        <div class="error-message" id="errorMessage">
+            <span style="font-size: 24px;">❌</span>
+            <span id="errorText"></span>
+        </div>
+        
+        <!-- Mensagem de Sucesso -->
+        <div class="success-message" id="successMessage">
+            <span style="font-size: 24px;">✅</span>
+            <span id="successText"></span>
+        </div>
+        
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <div class="logo">☁️</div>
+                    <div>
+                        <h1>CloudDrive Gratuito</h1>
+                        <p class="subtitle">Com Firestore • <span class="badge">100% FREE</span></p>
+                    </div>
+                </div>
+                <div class="stats">
+                    <p class="stats-label">Total de arquivos</p>
+                    <p class="stats-value" id="fileCount">0</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Upload Area -->
+        <div class="upload-area">
+            <label for="fileInput">
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon" id="uploadIcon">📤</div>
+                    <p class="upload-text" id="uploadText">Toque ou clique para fazer upload</p>
+                    <p class="upload-subtext">Selecione seus arquivos</p>
+                </div>
+            </label>
+            <input type="file" id="fileInput" multiple accept="*/*">
+            <div class="progress-container" id="progressContainer">
+                <p class="progress-text" id="progressText">Enviando...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+            <p class="warning-text">
+                ⚠️ <span class="limit-info">Limite: 1MB por arquivo</span> • 
+                100% Gratuito com Firestore • 
+                Arquivos armazenados em nuvem
+            </p>
+        </div>
+        
+        <!-- Files Section -->
+        <div class="files-section">
+            <div class="section-header">
+                <span class="section-icon">📁</span>
+                <h2 class="section-title">Meus Arquivos</h2>
+            </div>
+            <div class="files-list" id="filesList">
+                <div class="empty-state">
+                    <div class="empty-icon">📄</div>
+                    <p class="empty-text">Nenhum arquivo ainda</p>
+                    <p class="empty-subtext">Faça upload do seu primeiro arquivo (até 1MB)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // CONFIGURE AQUI SUAS CREDENCIAIS FIREBASE
+        // ========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDvk4mUUIOHpd0gxz8RZgN68K48c0qmdGI",
+            authDomain: "upload-doc-d6ea8.firebaseapp.com",
+            projectId: "upload-doc-d6ea8",
+            storageBucket: "upload-doc-d6ea8.firebasestorage.app",
+            messagingSenderId: "953121836477",
+            appId: "1:953121836477:web:76927f9f10ce73bdb616d4"
+        };
+        
+        // Limite de tamanho (1MB)
+        const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB em bytes
+        
+        // Inicializar Firebase
+        let db;
+        let isConfigured = false;
+        
+        try {
+            if (firebaseConfig.apiKey !== "SUA_API_KEY_AQUI") {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                isConfigured = true;
+                document.getElementById('configWarning').classList.remove('show');
+                showSuccess('Firebase conectado! Você pode usar o CloudDrive agora 🎉');
+            } else {
+                document.getElementById('configWarning').classList.add('show');
+            }
+        } catch (error) {
+            console.error('Erro ao inicializar Firebase:', error);
+            showError('Erro ao conectar com Firebase. Verifique suas credenciais.');
+            document.getElementById('configWarning').classList.add('show');
+        }
+        
+        // Elements
+        const fileInput = document.getElementById('fileInput');
+        const uploadZone = document.getElementById('uploadZone');
+        const uploadIcon = document.getElementById('uploadIcon');
+        const uploadText = document.getElementById('uploadText');
+        const filesList = document.getElementById('filesList');
+        const fileCount = document.getElementById('fileCount');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        
+        // Load files on start
+        if (isConfigured) {
+            loadFiles();
+        }
+        
+        // File input change
+        fileInput.addEventListener('change', handleFileUpload);
+        
+        // Upload file
+        async function handleFileUpload(e) {
+            if (!isConfigured) {
+                showError('Configure o Firebase primeiro! Veja o aviso amarelo acima.');
+                return;
+            }
+            
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            // Check file sizes
+            const oversizedFiles = files.filter(f => f.size > MAX_FILE_SIZE);
+            if (oversizedFiles.length > 0) {
+                showError(`Arquivo(s) muito grande(s)! Máximo: 1MB. Arquivo "${oversizedFiles[0].name}" tem ${formatFileSize(oversizedFiles[0].size)}`);
+                fileInput.value = '';
+                return;
+            }
+            
+            uploadZone.classList.add('uploading');
+            uploadIcon.textContent = '⏳';
+            uploadText.textContent = 'Fazendo upload...';
+            progressContainer.classList.add('show');
+            
+            let uploadedCount = 0;
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                try {
+                    progressText.textContent = `Enviando ${i + 1} de ${files.length}: ${file.name}`;
+                    progressFill.style.width = ((i / files.length) * 100) + '%';
+                    
+                    // Convert to Base64
+                    const base64Data = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                    
+                    // Save to Firestore
+                    await db.collection('files').add({
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        data: base64Data,
+                        uploadDate: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    uploadedCount++;
+                } catch (error) {
+                    console.error('Erro:', error);
+                    showError(`Erro ao enviar "${file.name}": ${error.message}`);
+                }
+            }
+            
+            progressFill.style.width = '100%';
+            
+            uploadZone.classList.remove('uploading');
+            uploadIcon.textContent = '📤';
+            uploadText.textContent = 'Toque ou clique para fazer upload';
+            
+            setTimeout(() => {
+                progressContainer.classList.remove('show');
+                progressFill.style.width = '0%';
+            }, 1000);
+            
+            fileInput.value = '';
+            
+            if (uploadedCount > 0) {
+                showSuccess(`${uploadedCount} arquivo(s) enviado(s) com sucesso! 🎉`);
+                loadFiles();
+            }
+        }
+        
+        // Load files from Firestore
+        async function loadFiles() {
+            if (!isConfigured) return;
+            
+            try {
+                const snapshot = await db.collection('files').orderBy('uploadDate', 'desc').get();
+                const files = [];
+                
+                snapshot.forEach((doc) => {
+                    files.push({ id: doc.id, ...doc.data() });
+                });
+                
+                displayFiles(files);
+                fileCount.textContent = files.length;
+            } catch (error) {
+                console.error('Erro ao carregar arquivos:', error);
+                showError('Erro ao carregar arquivos. Certifique-se que o Firestore está ativado no modo de teste.');
+            }
+        }
+        
+        // Display files
+        function displayFiles(files) {
+            if (files.length === 0) {
+                filesList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📄</div>
+                        <p class="empty-text">Nenhum arquivo ainda</p>
+                        <p class="empty-subtext">Faça upload do seu primeiro arquivo (até 1MB)</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            filesList.innerHTML = files.map(file => `
+                <div class="file-item">
+                    <div class="file-info">
+                        <div class="file-icon">${getFileIcon(file.type)}</div>
+                        <div class="file-details">
+                            <div class="file-name" title="${file.name}">${file.name}</div>
+                            <div class="file-meta">
+                                <span>${formatFileSize(file.size)}</span>
+                                <span>•</span>
+                                <span>${formatDate(file.uploadDate)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn btn-download" onclick="downloadFile('${file.id}', '${escapeHtml(file.name)}')" title="Baixar arquivo">
+                            ⬇️
+                        </button>
+                        <button class="btn btn-delete" onclick="deleteFile('${file.id}')" title="Excluir arquivo">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Download file
+        async function downloadFile(docId, fileName) {
+            try {
+                const doc = await db.collection('files').doc(docId).get();
+                if (!doc.exists) {
+                    showError('Arquivo não encontrado!');
+                    return;
+                }
+                
+                const fileData = doc.data();
+                const link = document.createElement('a');
+                link.href = fileData.data;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showSuccess(`Download de "${fileName}" iniciado! 📥`);
+            } catch (error) {
+                console.error('Erro ao baixar:', error);
+                showError('Erro ao baixar arquivo: ' + error.message);
+            }
+        }
+        
+        // Delete file
+        async function deleteFile(docId) {
+            if (!confirm('Tem certeza que deseja excluir este arquivo permanentemente?')) return;
+            
+            try {
+                await db.collection('files').doc(docId).delete();
+                showSuccess('Arquivo excluído com sucesso! 🗑️');
+                loadFiles();
+            } catch (error) {
+                console.error('Erro ao excluir:', error);
+                showError('Erro ao excluir arquivo: ' + error.message);
+            }
+        }
+        
+        // Helper functions
+        function getFileIcon(type) {
+            if (!type) return '📎';
+            if (type.startsWith('image/')) return '🖼️';
+            if (type.startsWith('video/')) return '🎥';
+            if (type.startsWith('audio/')) return '🎵';
+            if (type.includes('pdf')) return '📄';
+            if (type.includes('zip') || type.includes('rar') || type.includes('7z')) return '📦';
+            if (type.includes('word') || type.includes('document')) return '📝';
+            if (type.includes('excel') || type.includes('sheet')) return '📊';
+            if (type.includes('powerpoint') || type.includes('presentation')) return '📊';
+            if (type.includes('text')) return '📃';
+            return '📎';
+        }
+        
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        function formatDate(timestamp) {
+            if (!timestamp) return 'Agora mesmo';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) return 'Agora mesmo';
+            if (minutes < 60) return `${minutes} min atrás`;
+            if (hours < 24) return `${hours}h atrás`;
+            if (days < 7) return `${days}d atrás`;
+            return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            errorText.textContent = message;
+            errorMsg.classList.add('show');
+            setTimeout(() => {
+                errorMsg.classList.remove('show');
+            }, 6000);
+        }
+        
+        function showSuccess(message) {
+            const successMsg = document.getElementById('successMessage');
+            const successText = document.getElementById('successText');
+            successText.textContent = message;
+            successMsg.classList.add('show');
+            setTimeout(() => {
+                successMsg.classList.remove('show');
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
